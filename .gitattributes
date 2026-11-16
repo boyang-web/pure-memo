@@ -1,0 +1,18 @@
+# 默认文本文件统一使用 LF，避免跨平台换行符噪音
+* text=auto eol=lf
+
+*.html text
+*.css text
+*.js text
+*.json text
+*.webmanifest text
+*.md text
+*.py text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.apk binary
+*.zip binary

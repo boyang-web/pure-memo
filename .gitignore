@@ -1,0 +1,20 @@
+# 操作系统与编辑器
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# 本地 AI 工作区（不随仓库发布）
+.workbuddy/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 临时文件与日志
+*.log
+tmp/
+dist/
