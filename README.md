@@ -28,8 +28,9 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `PureMemo-vX.Y.Z-web.zip` | 解压即可部署的静态站点（当前版本 v1.1.0） |
-| `SHA256SUMS.txt` | 发布包校验和 |
+| `PureMemo-vX.Y.Z.apk` | Android 安装包，直接装机（当前版本 v1.1.1） |
+| `PureMemo-vX.Y.Z-web.zip` | 解压即可部署的静态站点 |
+| `SHA256SUMS.txt` / `SHA256SUMS-vX.Y.Z.txt` | 发布包与 APK 的校验和 |
 | Source code (zip / tar.gz) | GitHub 自动生成的源码包 |
 
 ```bash
@@ -37,7 +38,7 @@ shasum -a 256 -c SHA256SUMS.txt     # macOS
 sha256sum -c SHA256SUMS.txt         # Linux
 ```
 
-Android 安装包在仓库内：[`release/PureMemo-v1.0.apk`](release/PureMemo-v1.0.apk)。它是 v1.0 的 WebView 壳，不含 v1.1 的新交互，手机端建议直接用网页版。
+Android 安装包同时提交在仓库内：[`release/PureMemo-v1.1.1.apk`](release/PureMemo-v1.1.1.apk)，与最新 Release 是同一个文件，内容和网页版一致。
 
 ## 快速开始
 
@@ -56,9 +57,12 @@ npx serve .
 
 - **iOS Safari**：分享菜单 → 添加到主屏幕。
 - **Android Chrome**：浏览器菜单 → 安装应用 / 添加到主屏幕。
-- **Android APK**：下载 [PureMemo-v1.0.apk](release/PureMemo-v1.0.apk)，允许「安装未知来源应用」后安装。最低支持 Android 7.0，安装包为自签名。
+- **Android APK**：下载 [PureMemo-v1.1.1.apk](release/PureMemo-v1.1.1.apk)，允许「安装未知来源应用」后安装。最低支持 Android 7.0，安装包为自签名（v1 + v2 + v3）。
+- **iOS**：没有 APK，用 Safari「添加到主屏幕」，功能一致。
 
-> APK 基于 v1.0 构建；网页端后续的改动不会自动同步进 APK。
+> 装过 v1.0 APK 的设备需要先卸载：签名私钥没有入库，新包换了一把密钥，Android 不允许覆盖安装。卸载会清空 App 内数据。
+>
+> APK 里内置的是构建时的页面快照，网页版之后的改动不会自动同步进去；要更新请下载新版本 APK。
 
 ## 数据说明
 
@@ -82,12 +86,17 @@ npx serve .
 ├── manifest.webmanifest        # PWA 清单
 ├── sw.js                       # Service Worker 离线缓存
 ├── assets/icons/               # 应用图标
+├── android/                    # Android WebView 壳源码
+│   ├── AndroidManifest.xml
+│   ├── src/                    # MainActivity
+│   └── res/                    # 图标、主题、应用名
 ├── scripts/
 │   ├── generate_icons.py       # 纯标准库生成 PNG 图标
 │   ├── check_references.py     # 校验页面资源引用完整性
-│   └── build_release.py        # 打包发布产物（zip + SHA256）
+│   ├── build_release.py        # 打包 web 产物（zip + SHA256）
+│   └── build_apk.py            # 构建签名 APK（无需 Gradle）
 ├── release/
-│   └── PureMemo-v1.0.apk       # Android 安装包
+│   └── PureMemo-v1.1.1.apk     # Android 安装包
 ├── docs/
 │   ├── CHANGELOG.md            # 变更记录
 │   ├── DEVELOPMENT.md          # 架构与开发说明
@@ -111,8 +120,11 @@ python scripts/generate_icons.py
 # 校验 HTML / manifest / Service Worker 中的本地资源引用
 python scripts/check_references.py
 
-# 打发布包（产出 dist/PureMemo-vX.Y.Z-web.zip 与 SHA256SUMS.txt）
-python scripts/build_release.py v1.1.0
+# 打 web 发布包（产出 dist/PureMemo-vX.Y.Z-web.zip 与 SHA256SUMS.txt）
+python scripts/build_release.py v1.1.1
+
+# 构建 Android APK（需要 JDK 17 与 Android SDK，见 docs/DEVELOPMENT.md）
+python scripts/build_apk.py
 ```
 
 修改 `sw.js` 里的缓存资源后，请同步递增 `CACHE` 版本号，以淘汰旧缓存。
@@ -136,7 +148,7 @@ GitHub Pages：
 - Web App Manifest + Service Worker（PWA、离线缓存）
 - `localStorage` 本地持久化
 - Python 标准库生成图标
-- Android WebView 壳（APK）
+- Android WebView 壳（APK）：单个 Activity，`shouldInterceptRequest` 把 `assets/` 映射成 https 站点
 
 ## 许可证
 

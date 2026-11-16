@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [v1.1.1] — 2026-11-16
+
+### 新增
+
+- Android 壳工程源码入库（`android/`）：`MainActivity` 把 `assets/` 映射为 `https://appassets.androidplatform.net/`，给出稳定 origin，`localStorage` 行为与浏览器一致；主文档加载失败回退 `file:///android_asset/index.html`；切到后台时派发 `pagehide`，保证草稿落卡。
+- 状态栏跟随页面主题：壳在页面加载后注入一小段脚本，监听 `meta[name="theme-color"]` 的 `content` 变化，同步状态栏 / 导航栏底色与图标明暗（深色主题浅图标，浅色主题深图标）。
+- `scripts/build_apk.py`：不依赖 Gradle，直接调用 `aapt2` / `javac` / `d8` / `zipalign` / `apksigner` 构建签名 APK。版本号取自 `index.html` 的 `app-version`，`versionCode` 按 `MAJOR*10000 + MINOR*100 + PATCH` 计算；未签名包内时间戳固定为 1980-01-01，同一份源码两次构建字节一致。
+
+### 变更
+
+- APK 重新构建为 v1.1.1（`release/PureMemo-v1.1.1.apk`，versionCode 10101，113 KB），内含 v1.1 的拖拽排序、顶部内联编辑与动画重做。v1.0 的 APK 与源码脱节，不再作为发布产物。
+- 签名密钥换新（v1.0 的私钥没有入库），**新包无法覆盖安装 v1.0，需先卸载**。
+- APK 内不再打包 `sw.js`：壳里资源随包分发、不会热更新，Service Worker 无意义，`/sw.js` 直接返回 404，页面里的注册静默失败。
+- Service Worker 缓存版本升至 `purememo-v10`。
+
 ## [v1.1.0] — 2026-11-16
 
 ### 新增
@@ -86,5 +101,6 @@
 - 无导出/导入功能；清除站点数据、使用无痕模式或卸载 APK 都会丢失内容。
 - APK 为自签名，需要允许「安装未知来源应用」；最低 Android 7.0；竖屏锁定。
 
-[Unreleased]: https://github.com/boyang-web/pure-memo/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/boyang-web/pure-memo/compare/v1.1.1...HEAD
+[v1.1.1]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.1
 [v1.1.0]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.0

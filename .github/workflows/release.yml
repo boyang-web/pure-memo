@@ -41,10 +41,24 @@ jobs:
       - name: Build artifacts
         run: python scripts/build_release.py "${{ steps.meta.outputs.tag }}"
 
+      - name: Collect APK
+        run: |
+          tag="${{ steps.meta.outputs.tag }}"
+          if [ -f "release/PureMemo-$tag.apk" ]; then
+            cp "release/PureMemo-$tag.apk" dist/
+            if [ -f "release/SHA256SUMS-$tag.txt" ]; then cp "release/SHA256SUMS-$tag.txt" dist/; fi
+            echo "已收入 APK：PureMemo-$tag.apk"
+          else
+            echo "该标签没有对应 APK，本次只发 web 包"
+          fi
+
       - name: Show artifacts
         run: |
           ls -lh dist/
           cat dist/SHA256SUMS.txt
+
+      - name: Verify artifacts
+        run: test -n "$(ls dist/*-web.zip)"; echo "web zip 存在"
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -54,7 +68,9 @@ jobs:
           body_path: docs/releases/${{ steps.meta.outputs.tag }}.md
           files: |
             dist/PureMemo-*-web.zip
+            dist/*.apk
             dist/SHA256SUMS.txt
-          fail_on_unmatched_files: true
+            dist/SHA256SUMS-v*.txt
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false

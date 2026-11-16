@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 index.html 中 data-theme="dark" 的页面背景色一致，避免冷启动闪白 -->
+    <color name="window_background">#080B13</color>
+</resources>

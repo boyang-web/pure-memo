@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 index.html 的 <title> 保持一致，双端名字统一 -->
+    <string name="app_name">纯粹备忘录</string>
+</resources>

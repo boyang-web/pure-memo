@@ -21,11 +21,15 @@
 ├── manifest.webmanifest        # PWA 清单
 ├── sw.js                       # Service Worker
 ├── assets/icons/               # SVG 与 PNG 图标
+├── android/                    # WebView 壳源码（清单 / 资源 / MainActivity）
+│   └── keystore/               # 签名密钥（gitignore，务必自行备份）
 ├── scripts/generate_icons.py   # 用 Python 标准库生成 PNG 图标
 ├── scripts/check_references.py # 本地资源引用校验
+├── scripts/build_release.py    # 打包 web 版 zip + SHA256
+├── scripts/build_apk.py        # 构建签名 APK（aapt2 / d8 / apksigner）
 ├── release/                    # 构建产物（APK）
 ├── docs/                       # 文档
-└── .github/workflows/          # CI 校验
+└── .github/workflows/          # CI 校验与发布
 ```
 
 ## 数据模型
@@ -194,30 +198,59 @@ python scripts/check_references.py
 - 推送 `vX.Y.Z` 标签触发 `.github/workflows/release.yml`，校验通过后自动创建 Release 并上传产物，正文取自 `docs/releases/vX.Y.Z.md`。
 - `dist/` 不进仓库；`release/` 里只有手工构建的 APK。
 
-## APK 构建说明
+## Android 壳（APK）
 
-APK 采用离线 WebView 壳，而不是 `file://` 直接加载，以保证 `localStorage` 有稳定的 origin：
+壳的源码在 `android/`，只是一个 Activity，没有 Gradle 工程，也没有第三方依赖。
 
-- `MainActivity` 通过 `shouldInterceptRequest` 把 `https://appassets.androidplatform.net/*` 映射到 APK 的 `assets/`。
-- 由于该 origin 下不存在 `sw.js`，页面中的 Service Worker 注册会失败并被空 `catch` 忽略。
-- 主文档加载失败时回退到 `file:///android_asset/index.html`。
-- `onPause` 中派发 `pagehide`，确保草稿落卡。
-- 必须开启 `setDomStorageEnabled(true)`。
+### 为什么不用 `file://`
 
-构建链路（工具链未纳入仓库，成品位于 `release/`）：
+`file:///android_asset/index.html` 的 origin 是 opaque 的，`localStorage`、`crypto.randomUUID` 这类能力行为不稳定。壳把资源映射成 `https://appassets.androidplatform.net/`，origin 是正常的 `https`，与浏览器里访问时一致，数据也就不会因为换加载方式而消失。
 
-1. `aapt2 compile` / `aapt2 link` 生成资源与基础 APK；
-2. `javac -source 8 -target 8` 编译壳代码；
-3. `d8` 生成 `classes.dex`；
-4. 用 Python `zipfile` 将 `classes.dex` 与前端 `assets/` 注入 APK；
-5. `zipalign` 对齐；
-6. `keytool` 生成 PKCS12 密钥，`apksigner` 签名并校验（v2 + v3）。
+### 实现要点
 
-注意事项：
+| 位置 | 做法 |
+| --- | --- |
+| `shouldInterceptRequest` | 把 `appassets.androidplatform.net` 下的请求映射到 APK 的 `assets/`，按扩展名给 MIME，文本给 `utf-8`、图片给 `null`，并带 `Cache-Control: no-store`。 |
+| `/sw.js` | 直接回 404。壳里资源随包分发、不会热更新，Service Worker 没有意义。页面对注册失败已经是空 `catch`，不受影响。 |
+| 主文档失败 | `onReceivedError` 里回退到 `file:///android_asset/index.html`，保证最坏情况下还能打开。 |
+| `onPause` | 派发一次 `pagehide`，触发页面的 `flushDraftToCard()`，切后台不会丢正在写的草稿。 |
+| `setDomStorageEnabled(true)` | 必须开，否则 `localStorage` 不可用，卡片写不进去。 |
+| 状态栏 | 页面加载完后注入一段只读脚本，观察 `meta[name="theme-color"]` 的 `content`，经 `PureMemoShell.setBarColor()` 同步状态栏 / 导航栏底色，并按亮度切换图标明暗。 |
+| 深色自动适配 | 关掉 `FORCE_DARK` 与 `setAlgorithmicDarkeningAllowed`，主题完全由页面控制，避免二次压暗。 |
 
-- `d8.jar` 没有 `Main-Class`，需使用 `java -cp d8.jar com.android.tools.r8.D8`。
-- `aapt2 link` 不会打包 `assets/`，必须在 link 之后手动注入。
-- 修改前端后需要重新构建 APK 才能同步到安装包；当前 `release/` 中的 v1.0 对应 2026-11-07 的代码。
+`targetSdk` 取 34（不要求 edge-to-edge），窗口底色与页面深色背景同为 `#080B13`，冷启动不闪白；不需要 `safe-area-inset`，页面自带的 `env()` 取 0 也不会顶到状态栏。
+
+### 构建
+
+前置只有 JDK 17 与 Android SDK（`build-tools` + `platforms;android-34`），不需要 Gradle：
+
+```bash
+python scripts/build_apk.py          # 产出 release/PureMemo-vX.Y.Z.apk
+python scripts/build_apk.py --skip-sign   # 只出未签名包，排查打包问题
+```
+
+脚本内部链路：
+
+1. `aapt2 compile` 编译 `android/res`；
+2. `aapt2 link` 生成基础 APK，`-A` 直接把 `assets/` 打进去，`--version-code` / `--version-name` 由 `index.html` 的 `app-version` 推出（`MAJOR*10000 + MINOR*100 + PATCH`）；
+3. `javac -source 8 -target 8` 编译壳代码；
+4. `d8 --release --min-api 24` 生成 `classes.dex`；
+5. 用 Python `zipfile` 把 `classes.dex` 合并进 APK，**所有条目时间戳固定为 1980-01-01**，同一份源码两次构建哈希一致；
+6. `zipalign -f -p 4` 对齐；
+7. `apksigner` 签名（v1 + v2 + v3，v4 的 `.idsig` 不随包发布）。
+
+### 签名
+
+- 密钥在 `android/keystore/purememo-release.jks`，口令在 `android/keystore/keystore.properties`，两者都已 `.gitignore`。
+- 首次运行脚本会自动 `keytool -genkeypair` 生成，口令随机并存进 `keystore.properties`。
+- **务必备份这两个文件**：私钥丢了就无法再发布可覆盖安装的更新；口令丢了等于私钥不可用。
+- v1.0 的旧私钥没有入库，所以 v1.1.1 的包签名与 v1.0 不同，**装过 v1.0 的设备要先卸载**。
+
+### 注意事项
+
+- `aapt2 link` 的 `-A` 只打包目录内容，改前端后必须重新构建 APK 才会同步进安装包。
+- `build-tools` 里的 `d8` / `apksigner` 是 shell 包装脚本，靠 `JAVA_HOME` 或 `PATH` 找 `java`；脚本会自己导出这两个变量。
+- XML 注释里不能出现 `--`（例如写成 `--bg`），`aapt2 compile` 会直接报 `not well-formed`。
 
 ## 开发约定
 
@@ -232,5 +265,6 @@ APK 采用离线 WebView 壳，而不是 `file://` 直接加载，以保证 `loc
 
 - 数据只存在本机，没有云同步；清除站点数据或卸载 APK 会丢失内容。
 - 当前版本没有导出/导入功能，也没有自动备份。
-- APK 为自签名，需要允许未知来源；最低 Android 7.0。
+- APK 为自签名，需要允许未知来源；最低 Android 7.0；targetSdk 34，不跟随系统字体缩放（避免布局错位）。
+- 壳内的数据与浏览器里的数据互不相通：网页版和 APK 各自一份 `localStorage`。
 - CI 只做静态资源与语法校验，浏览器交互仍需手动冒烟测试。

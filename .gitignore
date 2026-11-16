@@ -18,3 +18,12 @@ __pycache__/
 *.log
 tmp/
 dist/
+
+# Android 构建中间产物
+build/
+android/build/
+android/.gradle/
+local.properties
+
+# 签名密钥绝不入库
+android/keystore/
