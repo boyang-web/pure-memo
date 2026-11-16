@@ -26,7 +26,7 @@ jobs:
           python-version: '3.12'
 
       - name: Check Python syntax
-        run: python -m py_compile scripts/generate_icons.py scripts/check_references.py
+        run: python -m py_compile scripts/generate_icons.py scripts/check_references.py scripts/build_release.py
 
       - name: Check manifest JSON
         run: python -m json.tool manifest.webmanifest > /dev/null
@@ -39,3 +39,6 @@ jobs:
 
       - name: Check release artifact
         run: test -s release/PureMemo-v1.0.apk
+
+      - name: Check release packaging
+        run: python scripts/build_release.py

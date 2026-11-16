@@ -185,6 +185,15 @@ python scripts/check_references.py
 8. 深色/浅色主题切换及跟随系统正常。
 9. 断网后重新打开页面仍可使用（需先在线访问一次）。
 
+## 发布
+
+版本号、需要同步修改的文件、标签与自动发布流程见 [`RELEASING.md`](RELEASING.md)。要点：
+
+- 版本号写在 `index.html` 的 `<meta name="app-version">`，打包脚本会用它和标签比对，不一致直接失败。
+- `python scripts/build_release.py vX.Y.Z` 产出 `dist/PureMemo-vX.Y.Z-web.zip` 与 `dist/SHA256SUMS.txt`；zip 内时间戳与权限固定，同源码可复现。
+- 推送 `vX.Y.Z` 标签触发 `.github/workflows/release.yml`，校验通过后自动创建 Release 并上传产物，正文取自 `docs/releases/vX.Y.Z.md`。
+- `dist/` 不进仓库；`release/` 里只有手工构建的 APK。
+
 ## APK 构建说明
 
 APK 采用离线 WebView 壳，而不是 `file://` 直接加载，以保证 `localStorage` 有稳定的 origin：

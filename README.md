@@ -22,6 +22,23 @@
 - **本地优先**：无账号、无服务器，数据不会上传到任何地方。
 - **Android APK**：内置 WebView 壳，离线运行，数据保存在 App 内。
 
+## 下载
+
+正式版本发布在 [Releases](https://github.com/boyang-web/pure-memo/releases)：
+
+| 文件 | 用途 |
+| --- | --- |
+| `PureMemo-vX.Y.Z-web.zip` | 解压即可部署的静态站点（当前版本 v1.1.0） |
+| `SHA256SUMS.txt` | 发布包校验和 |
+| Source code (zip / tar.gz) | GitHub 自动生成的源码包 |
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt     # macOS
+sha256sum -c SHA256SUMS.txt         # Linux
+```
+
+Android 安装包在仓库内：[`release/PureMemo-v1.0.apk`](release/PureMemo-v1.0.apk)。它是 v1.0 的 WebView 壳，不含 v1.1 的新交互，手机端建议直接用网页版。
+
 ## 快速开始
 
 Service Worker 需要 `localhost` 或 HTTPS 环境，直接双击打开 `index.html`（`file://`）不会启用离线缓存。
@@ -67,14 +84,18 @@ npx serve .
 ├── assets/icons/               # 应用图标
 ├── scripts/
 │   ├── generate_icons.py       # 纯标准库生成 PNG 图标
-│   └── check_references.py     # 校验页面资源引用完整性
+│   ├── check_references.py     # 校验页面资源引用完整性
+│   └── build_release.py        # 打包发布产物（zip + SHA256）
 ├── release/
 │   └── PureMemo-v1.0.apk       # Android 安装包
 ├── docs/
 │   ├── CHANGELOG.md            # 变更记录
-│   └── DEVELOPMENT.md          # 架构与开发说明
+│   ├── DEVELOPMENT.md          # 架构与开发说明
+│   ├── RELEASING.md            # 发版流程
+│   └── releases/               # 各版本的发布说明
 └── .github/workflows/
-    └── validate.yml            # 资源引用与语法校验
+    ├── validate.yml            # 资源引用与语法校验
+    └── release.yml             # 打标签自动发布
 ```
 
 单文件 `index.html` 是刻意设计：无构建步骤、离线缓存简单，也便于嵌入 Android WebView。
@@ -89,9 +110,14 @@ python scripts/generate_icons.py
 
 # 校验 HTML / manifest / Service Worker 中的本地资源引用
 python scripts/check_references.py
+
+# 打发布包（产出 dist/PureMemo-vX.Y.Z-web.zip 与 SHA256SUMS.txt）
+python scripts/build_release.py v1.1.0
 ```
 
 修改 `sw.js` 里的缓存资源后，请同步递增 `CACHE` 版本号，以淘汰旧缓存。
+
+发版流程（版本号规则、需要同步修改的文件、标签与自动发布）见 [`docs/RELEASING.md`](docs/RELEASING.md)。
 
 ## 部署
 

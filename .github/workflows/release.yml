@@ -1,0 +1,60 @@
+name: Release
+
+# 打 vX.Y.Z 标签即发布：先跑一遍校验，再打包静态站点并创建 GitHub Release。
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要发布的标签（已存在，例如 v1.1.0）
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate
+        run: |
+          python -m py_compile scripts/*.py
+          python -m json.tool manifest.webmanifest > /dev/null
+          python scripts/check_references.py
+          node --check sw.js
+
+      - name: Resolve tag
+        id: meta
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build artifacts
+        run: python scripts/build_release.py "${{ steps.meta.outputs.tag }}"
+
+      - name: Show artifacts
+        run: |
+          ls -lh dist/
+          cat dist/SHA256SUMS.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: 纯粹备忘录 ${{ steps.meta.outputs.tag }}
+          body_path: docs/releases/${{ steps.meta.outputs.tag }}.md
+          files: |
+            dist/PureMemo-*-web.zip
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false

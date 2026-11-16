@@ -2,7 +2,9 @@
 
 本项目从 v1.0 开始记录版本变更，结构参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased] — 2026-11-16
+## [Unreleased]
+
+## [v1.1.0] — 2026-11-16
 
 ### 新增
 
@@ -25,6 +27,8 @@
 
 ### 变更
 
+- Service Worker 缓存版本升至 `purememo-v9`；`index.html` 增加 `app-version` 元信息，与发布标签保持一致。
+- 发布流程标准化：打 `vX.Y.Z` 标签触发 GitHub Actions，自动校验、打包 `PureMemo-vX.Y.Z-web.zip`、生成 `SHA256SUMS.txt` 并创建 Release（见 `docs/RELEASING.md`）。
 - 同一次换序里所有卡片共用一个时长（按最大位移计算），一起出发一起停住，避免每张卡各走各的时长显得零碎。
 - `render()` 改为复用节点：按新顺序移动已有卡片与分组头，只增删变化的部分，不再整板重建（点卡片编辑、保存、置顶不再重建所有卡片）。
 - 拖拽落位后不再调用 `render()`，改由 `settleTempHeads()` 收尾分组头。
@@ -81,3 +85,6 @@
 - 无账号、无云端同步，数据仅存在当前浏览器或 App 内。
 - 无导出/导入功能；清除站点数据、使用无痕模式或卸载 APK 都会丢失内容。
 - APK 为自签名，需要允许「安装未知来源应用」；最低 Android 7.0；竖屏锁定。
+
+[Unreleased]: https://github.com/boyang-web/pure-memo/compare/v1.1.0...HEAD
+[v1.1.0]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.0
