@@ -235,7 +235,7 @@ python scripts/build_apk.py --skip-sign   # 只出未签名包，排查打包问
 2. `aapt2 link` 生成基础 APK，`-A` 直接把 `assets/` 打进去，`--version-code` / `--version-name` 由 `index.html` 的 `app-version` 推出（`MAJOR*10000 + MINOR*100 + PATCH`）；
 3. `javac -source 8 -target 8` 编译壳代码；
 4. `d8 --release --min-api 24` 生成 `classes.dex`；
-5. 用 Python `zipfile` 把 `classes.dex` 合并进 APK，**所有条目时间戳固定为 1980-01-01**，同一份源码两次构建哈希一致；
+5. 用 Python `zipfile` 把 `classes.dex` 合并进 APK，**所有条目时间戳固定为 1980-01-01**，`resources.arsc` 与 `classes.dex` 用 STORED（见下方注意事项），同一份源码两次构建哈希一致；
 6. `zipalign -f -p 4` 对齐；
 7. `apksigner` 签名（v1 + v2 + v3，v4 的 `.idsig` 不随包发布）。
 
@@ -249,6 +249,8 @@ python scripts/build_apk.py --skip-sign   # 只出未签名包，排查打包问
 ### 注意事项
 
 - `aapt2 link` 的 `-A` 只打包目录内容，改前端后必须重新构建 APK 才会同步进安装包。
+- **`resources.arsc` 必须未压缩且 4 字节对齐**：targetSdk ≥ 30 的包在 Android 11+ 安装时强制检查，压缩了会报 `INSTALL_FAILED_INVALID_APK`，用户看到的是「应用未安装 / 与设备不兼容」。用 Python `zipfile` 重打包时默认会 Deflate 所有条目，必须显式对 `resources.arsc`（以及 `classes.dex`）用 `ZIP_STORED`，再跑 `zipalign`。注意 `zipalign -c` 对**被压缩**的 `resources.arsc` 不会报错，所以 `build_apk.py` 与 `scripts/check_apk.py` 会直接查压缩方式和实际数据偏移。
+- CI 没有 Android SDK，但 `scripts/check_apk.py` 只读 zip 结构，能在流水线上挡住这类回归。
 - `build-tools` 里的 `d8` / `apksigner` 是 shell 包装脚本，靠 `JAVA_HOME` 或 `PATH` 找 `java`；脚本会自己导出这两个变量。
 - XML 注释里不能出现 `--`（例如写成 `--bg`），`aapt2 compile` 会直接报 `not well-formed`。
 

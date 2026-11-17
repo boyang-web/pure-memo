@@ -1,5 +1,5 @@
 /* 纯粹备忘录 — 离线缓存 */
-var CACHE = 'purememo-v10';
+var CACHE = 'purememo-v11';
 var ASSETS = [
   './',
   './index.html',

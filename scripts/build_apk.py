@@ -19,6 +19,7 @@ import hashlib
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import zipfile
@@ -114,6 +115,12 @@ def stage_assets():
     return assets
 
 
+# Android 11（API 30）起，targetSdk >= 30 的 APK 必须把 resources.arsc
+# 未压缩存放且 4 字节对齐，否则系统会直接拒绝安装（INSTALL_FAILED_INVALID_APK）。
+# classes.dex 也按最佳实践未压缩存放，ART 可以直接 mmap。
+STORED_ENTRIES = {'resources.arsc', 'classes.dex'}
+
+
 def deterministic_zip(entries, out):
     """写一个时间戳与权限都固定的 zip，便于核对哈希。"""
     if not out.parent.is_dir():
@@ -121,10 +128,26 @@ def deterministic_zip(entries, out):
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for arcname, data in entries:
             info = zipfile.ZipInfo(arcname, date_time=FIXED_TIME)
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.compress_type = (zipfile.ZIP_STORED if arcname in STORED_ENTRIES
+                                  else zipfile.ZIP_DEFLATED)
             info.external_attr = 0o600 << 16
             z.writestr(info, data)
     return out
+
+
+def check_apk_alignment(apk):
+    """显式校验 resources.arsc 未压缩且 4 字节对齐——zipalign -c 查不出被压缩的情况。"""
+    with zipfile.ZipFile(apk) as z:
+        info = z.getinfo('resources.arsc')
+        if info.compress_type != zipfile.ZIP_STORED:
+            die('resources.arsc 被压缩了，Android 11+ 会拒绝安装')
+        with open(apk, 'rb') as f:
+            f.seek(info.header_offset + 26)
+            name_len, extra_len = struct.unpack('<HH', f.read(4))
+        offset = info.header_offset + 30 + name_len + extra_len
+        if offset % 4:
+            die(f'resources.arsc 未按 4 字节对齐（偏移 {offset}）')
+        return info.file_size, offset
 
 
 def rewrite_apk(src, extra, out):
@@ -259,6 +282,8 @@ def main():
     print('  zipalign 4 字节对齐')
     aligned = BUILD / 'aligned.apk'
     run([str(build_tools / 'zipalign'), '-f', '-p', '4', str(unsigned), str(aligned)])
+    size, offset = check_apk_alignment(aligned)
+    print(f'  校验    resources.arsc 未压缩、偏移 {offset} 4 字节对齐（{size} 字节）')
 
     if not RELEASE.is_dir():
         RELEASE.mkdir(parents=True)
@@ -286,6 +311,8 @@ def main():
         verify = run([str(build_tools / 'apksigner'), 'verify', '--print-certs', str(target)])
         cert = next((l for l in verify.stdout.splitlines() if 'SHA-256' in l), '')
         print(f'  校验    {cert.strip()}')
+
+    check_apk_alignment(target)   # 签名不应改变对齐，最终包再查一遍
 
     badging = run([str(build_tools / 'aapt2'), 'dump', 'badging', str(target)]).stdout
     summary = [l for l in badging.splitlines() if l.startswith(('package:', 'sdkVersion', 'targetSdkVersion', 'launchable-activity'))]

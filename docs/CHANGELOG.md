@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [v1.1.2] — 2026-11-17
+
+### 修复
+
+- **v1.1.1 的 APK 在 Android 11+ 装不上（提示不兼容）**：`scripts/build_apk.py` 重打包时把所有 zip 条目都用 Deflate 压缩，连 `resources.arsc` 也被压了。targetSdk ≥ 30 的包要求该文件**未压缩且 4 字节对齐**，否则安装器直接判为无效包（`INSTALL_FAILED_INVALID_APK`）。现在 `resources.arsc` 和 `classes.dex` 按 STORED 写入，再由 `zipalign -p 4` 对齐；构建脚本会显式校验压缩方式与偏移，`scripts/check_apk.py` 把这个校验带进 CI（不需要 Android SDK）。
+- v1.1.1 的 APK 保留在 Release 里作历史记录，已被本版取代；v1.1.2 与 v1.1.1 的签名相同，可以覆盖安装。
+
+### 变更
+
+- Service Worker 缓存版本升至 `purememo-v11`。
+
 ## [v1.1.1] — 2026-11-16
 
 ### 新增
@@ -101,6 +112,7 @@
 - 无导出/导入功能；清除站点数据、使用无痕模式或卸载 APK 都会丢失内容。
 - APK 为自签名，需要允许「安装未知来源应用」；最低 Android 7.0；竖屏锁定。
 
-[Unreleased]: https://github.com/boyang-web/pure-memo/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/boyang-web/pure-memo/compare/v1.1.2...HEAD
+[v1.1.2]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.2
 [v1.1.1]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.1
 [v1.1.0]: https://github.com/boyang-web/pure-memo/releases/tag/v1.1.0

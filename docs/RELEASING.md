@@ -22,12 +22,12 @@
 # 1. 本地自查
 python scripts/check_references.py
 node --check sw.js
-python scripts/build_release.py v1.1.1      # 产出 dist/*.zip 与 SHA256SUMS.txt
-python scripts/build_apk.py                 # 产出 release/PureMemo-v1.1.1.apk
+python scripts/build_release.py v1.1.2      # 产出 dist/*.zip 与 SHA256SUMS.txt
+python scripts/build_apk.py                 # 产出 release/PureMemo-v1.1.2.apk
 
 # 2. 提交并打标签
-git add -A && git commit -m "chore(release): v1.1.1"
-git tag -a v1.1.1 -m "v1.1.1"
+git add -A && git commit -m "chore(release): v1.1.2"
+git tag -a v1.1.2 -m "v1.1.2"
 git push origin main --follow-tags
 ```
 
